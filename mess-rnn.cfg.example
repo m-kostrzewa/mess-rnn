@@ -10,6 +10,8 @@ logging_cfg = /home/me/mess-rnn/logging.cfg
 workers = MW4
 toolkit = /home/me/mess-rnn/toolkits/basic.zip
 sleep_time_minutes = 1
+input_base_dir = /data/Malware/
+output_base_dir = /home/mkostrzewa/workspace/raw/
 
 [MW4]
 vm_name = MW4
