@@ -1,0 +1,16 @@
+[MESS]
+proxy_url = http://127.0.0.1:2811
+results_url = http://127.0.0.1
+
+[Common]
+sample_target_name = evil.exe
+logging_cfg = /home/me/mess-rnn/logging.cfg
+
+[Analyze]
+workers = MW4
+toolkit = /home/me/mess-rnn/toolkits/basic.zip
+sleep_time_minutes = 1
+
+[MW4]
+vm_name = MW4
+snapshot_name = MESS-SNAPSHOT-MW4
