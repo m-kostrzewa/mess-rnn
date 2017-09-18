@@ -1,14 +1,8 @@
 #!/usr/bin/python3
 
+from common import *
+
 import xmlrpc.client
-import configparser
-import argparse
-import glob
-import time
-import queue
-import threading
-import logging
-import logging.config
 import os
 import urllib.request
 import re
@@ -139,11 +133,6 @@ class SampleDescriptor(object):
                         log.debug("%s has no entry function" % filename)
                 elif line in ['\n', '\r\n']:
                     current_func = ""
-
-
-def init_logger(config):
-    log_cfg_path = config.get("Common", "logging_cfg")
-    logging.config.fileConfig(log_cfg_path)
 
 
 def load_sample_descriptors():
