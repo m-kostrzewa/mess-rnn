@@ -2,8 +2,8 @@ from common import *
 
 import csv
 import shutil
-import tempfile
 import zipfile
+import io
 
 log = logging.getLogger("preprocess")
 
@@ -22,11 +22,29 @@ IN_BASE_DIR = "."
 OUT_BASE_DIR = "."
 
 
+class OperationDict(object):
+    def __init__(self, dict_dir):
+        # TODO: persistence
+        self.lock = threading.Lock()
+        self.dict = {}
+
+    def get(self, key):
+        with self.lock:
+            if key not in self.dict.keys():
+                new_idx = len(self.dict.keys()) + 1
+                self.dict[key] = new_idx
+                log.debug("%s not in dict. Added it as index=%s" %
+                          (key, new_idx))
+                # TODO: persistence
+            return self.dict[key]
+
+
 class Worker(threading.Thread):
-    def __init__(self, id, queue):
+    def __init__(self, id, queue, op_dict):
         super().__init__()
         self.id = id
         self.queue = queue
+        self.op_dict = op_dict
         log.info("Starting Worker thread %s" % self.id)
 
     def run(self):
@@ -42,26 +60,32 @@ class Worker(threading.Thread):
     def preprocess(self, zip_sample):
         log.info("Worker %s - inspecting %s" % (self.id, zip_sample.rel_path))
 
-        with tempfile.SpooledTemporaryFile(max_size=1024*1024) as tmpfile:
-            self.extract_pml(zip_sample, tmpfile)
-            return
+        encodings = []
+        csv_file = self.extract_csv(zip_sample)
+        encodings = self.encode(csv_file)
 
-    def extract_pml(self, zip_sample, tmpfile):
+    def extract_csv(self, zip_sample):
         zip_abs_path = os.path.join(IN_BASE_DIR, zip_sample.rel_path)
         with zipfile.ZipFile(zip_abs_path) as zip_file:
             found_files = zip_file.namelist()
             log.debug("Worker %s - files found in the archive: %s" %
                         (self.id, found_files))
 
-            # TODO: this should be a .csv. Use .pml for PoC
-            pml_file = next(filter(lambda filepath: ".pml" == \
-                                                os.path.splitext(filepath)[1],
+            csv_file = next(filter(lambda filepath: ".csv" == \
+                                   os.path.splitext(filepath)[1].lower(),
                                    found_files))
-            log.debug("Worker %s - pml file: %s" % (self.id, pml_file))
+            log.debug("Worker %s - csv file: %s" % (self.id, csv_file))
 
-            with zip_file.open(pml_file) as pml:
-                shutil.copyfileobj(pml, tmpfile)
-                log.info("Worker %s - extracted %s" % (self.id, pml_file))
+            return zip_file.open(csv_file, mode="r")
+
+    def encode(self, csv_file):
+        encodings = []
+        items_file  = io.TextIOWrapper(csv_file, encoding='iso-8859-1', newline='\r\n')
+        for i, row in enumerate(csv.DictReader(items_file)):
+            if i == 0: continue # skip column names
+            enc = self.op_dict.get(row["Operation"])
+            encodings.append(enc)
+        return encodings
 
 
 class ZippedSample(object):
@@ -70,11 +94,11 @@ class ZippedSample(object):
         self.target_name = target_name
 
 
-def start_workers(config, queue):
+def start_workers(config, queue, op_dict):
     num_workers = config.get("Preprocess", "num_workers")
     worker_threads = []
     for i in num_workers:
-        w = Worker(i, queue)
+        w = Worker(i, queue, op_dict)
         w.start()
         worker_threads.append(w)
     return worker_threads
@@ -110,8 +134,11 @@ def main():
     IN_BASE_DIR = config.get("Preprocess", "input_base_dir")
     OUT_BASE_DIR = config.get("Preprocess", "output_base_dir")
 
+    dict_dir = config.get("Preprocess", "dictionary_dir")
+    op_dict = OperationDict(dict_dir)
+
     zip_queue = queue.Queue()
-    worker_threads = start_workers(config, zip_queue)
+    worker_threads = start_workers(config, zip_queue, op_dict)
 
     sample_target_name = config.get("Common", "sample_target_name")
     enqueue_zips(zip_queue, sample_target_name)
@@ -123,7 +150,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-# example line in .csv from previous step:
-# "9:58:55.6960949 AM","CompatTelRunner.exe","2392","ReadFile"
-# "C:\Windows\System32\appraiser.dll","SUCCESS",
-# "Offset: 1,193,472, Length: 14,848, I/O Flags: Non-cached, Paging I/O, Synchronous # Paging I/O, Priority: Normal"
