@@ -23,20 +23,31 @@ OUT_BASE_DIR = "."
 
 
 class OperationDict(object):
-    def __init__(self, dict_dir):
+    def __init__(self, dict_path):
         # TODO: persistence
         self.lock = threading.Lock()
-        self.dict = {}
+        self.dict_path = dict_path
+        self.dict = load_operation_dict(dict_path)
 
     def get(self, key):
         with self.lock:
             if key not in self.dict.keys():
-                new_idx = len(self.dict.keys()) + 1
+                new_idx = self.find_first_unused_idx()
                 self.dict[key] = new_idx
-                log.debug("%s not in dict. Added it as index=%s" %
+                with open(self.dict_path, "a+") as persistent_dict:
+                    persistent_dict.write("%s:%s\n" % (key, new_idx))
+                log.debug("'%s' not in dict. Saved it. Index = %s" %
                           (key, new_idx))
-                # TODO: persistence
             return self.dict[key]
+
+    def find_first_unused_idx(self):
+        used_idx = self.dict.values()
+        if not self.dict.values(): return 0
+        i = 0
+        for i in range(max(used_idx)):
+            if i not in used_idx:
+                return i
+        return max(used_idx) + 1
 
 
 class Worker(threading.Thread):
@@ -134,8 +145,8 @@ def main():
     IN_BASE_DIR = config.get("Preprocess", "input_base_dir")
     OUT_BASE_DIR = config.get("Preprocess", "output_base_dir")
 
-    dict_dir = config.get("Preprocess", "dictionary_dir")
-    op_dict = OperationDict(dict_dir)
+    dict_path = config.get("Preprocess", "dictionary_path")
+    op_dict = OperationDict(dict_path)
 
     zip_queue = queue.Queue()
     worker_threads = start_workers(config, zip_queue, op_dict)

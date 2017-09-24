@@ -16,3 +16,12 @@ OUT_BASE_DIR = "."
 def init_logger(config):
     log_cfg_path = config.get("Common", "logging_cfg")
     logging.config.fileConfig(log_cfg_path)
+
+def load_operation_dict(filepath):
+    result = {}
+    if os.path.exists(filepath):
+        with open(filepath, "r") as f:
+            for line in f:
+                op_name, op_code = line.rstrip().split(":")
+                result[op_name] = int(op_code)
+    return result
