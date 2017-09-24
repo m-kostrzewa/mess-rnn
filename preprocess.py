@@ -4,6 +4,7 @@ import csv
 import shutil
 import zipfile
 import io
+from collections import defaultdict
 
 log = logging.getLogger("preprocess")
 
@@ -69,14 +70,19 @@ class Worker(threading.Thread):
             self.queue.task_done()
 
     def preprocess(self, zip_sample):
-        log.info("Worker %s - inspecting %s" % (self.id, zip_sample.rel_path))
+        log.info("Worker %s - processing %s" % (self.id, zip_sample.rel_path))
 
-        encodings = []
-        csv_file = self.extract_csv(zip_sample)
-        encodings = self.encode(csv_file)
+        csv_file = self.extract_csv(zip_sample.rel_path)
+        benevolent, malevolent = self.encode(csv_file, zip_sample.target_name)
+        out_dir = os.path.join(OUT_BASE_DIR,
+                               os.path.dirname(zip_sample.rel_path))
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        self.save_encodings(benevolent, os.path.join(out_dir, "benevolent.txt"))
+        self.save_encodings(malevolent, os.path.join(out_dir, "malevolent.txt"))
 
-    def extract_csv(self, zip_sample):
-        zip_abs_path = os.path.join(IN_BASE_DIR, zip_sample.rel_path)
+    def extract_csv(self, rel_path):
+        zip_abs_path = os.path.join(IN_BASE_DIR, rel_path)
         with zipfile.ZipFile(zip_abs_path) as zip_file:
             found_files = zip_file.namelist()
             log.debug("Worker %s - files found in the archive: %s" %
@@ -85,18 +91,32 @@ class Worker(threading.Thread):
             csv_file = next(filter(lambda filepath: ".csv" == \
                                    os.path.splitext(filepath)[1].lower(),
                                    found_files))
-            log.debug("Worker %s - csv file: %s" % (self.id, csv_file))
-
+            log.debug("Worker %s - opening csv file: %s" % (self.id, csv_file))
             return zip_file.open(csv_file, mode="r")
 
-    def encode(self, csv_file):
-        encodings = []
-        items_file  = io.TextIOWrapper(csv_file, encoding='iso-8859-1', newline='\r\n')
+    def encode(self, csv_file, target_name):
+        log.debug("Worker %s - encoding" % self.id)
+        benevolent_encodings = defaultdict(list)
+        malevolent_encodings = defaultdict(list)
+        items_file  = io.TextIOWrapper(csv_file, encoding="iso-8859-1",
+                                       newline="\r\n")
         for i, row in enumerate(csv.DictReader(items_file)):
             if i == 0: continue # skip column names
-            enc = self.op_dict.get(row["Operation"])
-            encodings.append(enc)
-        return encodings
+            enc_op = self.op_dict.get(row["Operation"])
+            is_malware = row["Process Name"] == target_name
+            pid = row["PID"]
+            if is_malware:
+                malevolent_encodings[pid].append(enc_op)
+            else:
+                benevolent_encodings[pid].append(enc_op)
+        return (benevolent_encodings, malevolent_encodings)
+
+    def save_encodings(self, enc, out_path):
+        log.debug("Worker %s - saving %s process encodings to %s" %
+                  (self.id, len(enc.keys()), out_path))
+        with open(out_path, "w") as f:
+            for pid, encodings in enc.items():
+                f.write("%s\n" % ",".join(map(str, encodings)))
 
 
 class ZippedSample(object):
