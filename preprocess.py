@@ -1,3 +1,10 @@
+#!/usr/bin/python3
+#
+# Unpacks zipped results from MESS analysis. Doing so, updates the dictionary
+# of encountered function calls and saves their encoded sequence for each
+# PID, dividing them into malevolent and benevolent.
+#
+
 from common import *
 
 import csv
@@ -78,8 +85,10 @@ class Worker(threading.Thread):
                                os.path.dirname(zip_sample.rel_path))
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
-        self.save_encodings(benevolent, os.path.join(out_dir, "benevolent.txt"))
-        self.save_encodings(malevolent, os.path.join(out_dir, "malevolent.txt"))
+        self.save_encodings(benevolent, os.path.join(out_dir,
+                                                     BENEVOLENT_FILENAME))
+        self.save_encodings(malevolent, os.path.join(out_dir,
+                                                     MALEVOLENT_FILENAME))
 
     def extract_csv(self, rel_path):
         zip_abs_path = os.path.join(IN_BASE_DIR, rel_path)
@@ -165,7 +174,7 @@ def main():
     IN_BASE_DIR = config.get("Preprocess", "input_base_dir")
     OUT_BASE_DIR = config.get("Preprocess", "output_base_dir")
 
-    dict_path = config.get("Preprocess", "dictionary_path")
+    dict_path = config.get("Common", "dictionary_path")
     op_dict = OperationDict(dict_path)
 
     zip_queue = queue.Queue()

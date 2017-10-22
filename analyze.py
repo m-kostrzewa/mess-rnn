@@ -1,4 +1,8 @@
 #!/usr/bin/python3
+#
+# Schedules analysis of executable sample files in MESS sandbox and
+# collects results.
+#
 
 from common import *
 

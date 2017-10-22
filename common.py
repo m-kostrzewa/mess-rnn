@@ -13,6 +13,9 @@ import os.path
 IN_BASE_DIR = "."
 OUT_BASE_DIR = "."
 
+BENEVOLENT_FILENAME = "benevolent.txt"
+MALEVOLENT_FILENAME = "malevolent.txt"
+
 def init_logger(config):
     log_cfg_path = config.get("Common", "logging_cfg")
     logging.config.fileConfig(log_cfg_path)
