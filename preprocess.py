@@ -146,7 +146,7 @@ class ZippedSample(object):
 def start_workers(config, queue, op_dict):
     num_workers = config.get("Preprocess", "num_workers")
     worker_threads = []
-    for i in num_workers:
+    for i in range(int(num_workers)):
         w = Worker(i, queue, op_dict)
         w.start()
         worker_threads.append(w)
