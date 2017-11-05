@@ -112,13 +112,22 @@ class Worker(threading.Thread):
         for i, row in enumerate(csv.DictReader(items_file)):
             if i == 0: continue # skip column names
             enc_op = self.op_dict.get(row["Operation"])
-            is_malware = row["Process Name"] == target_name
+
+            is_malware = self.is_malware(row, target_name)
+
             pid = row["PID"]
             if is_malware:
                 malevolent_encodings[pid].append(enc_op)
             else:
                 benevolent_encodings[pid].append(enc_op)
         return (benevolent_encodings, malevolent_encodings)
+
+    def is_malware(self, row, target_name):
+        is_dll_malware = row["Process Name"] == "svchost.exe" and \
+                         "rundll" in row["Path"] and \
+                         target_name in row["Path"]
+        is_exe_malware = row["Process Name"] == target_name
+        return is_dll_malware or is_exe_malware
 
     def save_encodings(self, enc, out_path):
         log.debug("Worker %s - saving %s process encodings to %s" %
