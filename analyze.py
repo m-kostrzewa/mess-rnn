@@ -10,6 +10,7 @@ import xmlrpc.client
 import os
 import urllib.request
 import re
+import threading
 
 log = logging.getLogger("analyze")
 
@@ -29,12 +30,14 @@ OUT_BASE_DIR = "."
 
 
 class MessWorker(threading.Thread):
-    def __init__(self, id, queue, mess_client, toolkit,
+    def __init__(self, id, queue, proxy_url, toolkit,
                  sleep_time_minutes, results_url, vm_name, snapshot_name):
         super().__init__()
         self.id = id
         self.queue = queue
-        self.mess = mess_client
+        self.proxy_url = proxy_url
+        self.mess = xmlrpc.client.ServerProxy(proxy_url)
+        self.mess_client_lock = threading.Lock()
         self.toolkit = toolkit
         self.sleep_time_minutes = sleep_time_minutes
         self.results_url = results_url
@@ -62,6 +65,7 @@ class MessWorker(threading.Thread):
                  (self.id, sample.rel_path))
         with open(self.toolkit, "rb") as f:
             toolkit_data = xmlrpc.client.Binary(f.read())
+
         self.mess.start_analysis(self.vm_name, sample.target_name,
             sample.command.split("%"), sample.load(), toolkit_data,
             self.snapshot_name)
@@ -160,14 +164,13 @@ def start_workers(config, queue):
     sleep_time_minutes = int(config.get("Analyze", "sleep_time_minutes"))
     results_url = config.get("MESS", "results_url")
     proxy_url = config.get("MESS", "proxy_url")
-    mess_client = xmlrpc.client.ServerProxy(proxy_url)
 
     workers = (config.get("Analyze", "workers")).split(",")
     worker_threads = []
     for (i, worker) in enumerate(workers):
         vm_name = config.get(worker, "vm_name")
         snapshot_name = config.get(worker, "snapshot_name")
-        m = MessWorker(i, queue, mess_client=mess_client, toolkit=toolkit,
+        m = MessWorker(i, queue, proxy_url=proxy_url, toolkit=toolkit,
                        sleep_time_minutes=sleep_time_minutes,
                        results_url=results_url, vm_name=vm_name,
                        snapshot_name=snapshot_name)
