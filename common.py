@@ -28,3 +28,8 @@ def load_operation_dict(filepath):
                 op_name, op_code = line.rstrip().split(":")
                 result[op_name] = int(op_code)
     return result
+
+def generate_bundle_filename(basename, is_train, is_input):
+    return "{}_{}_{}_vec".format(basename,
+                                 ("train" if is_train else "test"),
+                                 ("input" if is_input else "output"))

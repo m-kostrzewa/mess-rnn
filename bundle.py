@@ -175,8 +175,12 @@ def main():
     if not os.path.exists(OUT_BASE_DIR):
         os.makedirs(OUT_BASE_DIR)
 
-    input_vec_filename = "{}_train_input_vec".format(args.name)
-    output_vec_filename = "{}_train_output_vec".format(args.name)
+    input_vec_filename = generate_bundle_filename(basename=args.name,
+                                                   is_train=True,
+                                                   is_input=True)
+    output_vec_filename = generate_bundle_filename(basename=args.name,
+                                                    is_train=True,
+                                                    is_input=False)
     save_to_file(input_vec, os.path.join(OUT_BASE_DIR, input_vec_filename))
     save_to_file(output_vec, os.path.join(OUT_BASE_DIR, output_vec_filename))
 
