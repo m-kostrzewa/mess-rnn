@@ -37,7 +37,6 @@ class MessWorker(threading.Thread):
         self.queue = queue
         self.proxy_url = proxy_url
         self.mess = xmlrpc.client.ServerProxy(proxy_url)
-        self.mess_client_lock = threading.Lock()
         self.toolkit = toolkit
         self.sleep_time_minutes = sleep_time_minutes
         self.results_url = results_url
