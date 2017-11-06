@@ -59,6 +59,8 @@ class OperationDict(object):
 
 
 class Worker(threading.Thread):
+    __lock = threading.Lock()
+
     def __init__(self, id, queue, op_dict):
         super().__init__()
         self.id = id
@@ -130,11 +132,12 @@ class Worker(threading.Thread):
         return is_dll_malware or is_exe_malware
 
     def save_encodings(self, enc, out_path):
-        log.debug("Worker %s - saving %s process encodings to %s" %
-                  (self.id, len(enc.keys()), out_path))
-        with open(out_path, "w") as f:
-            for pid, encodings in enc.items():
-                f.write("%s\n" % ",".join(map(str, encodings)))
+        with Worker.__lock:
+            log.debug("Worker %s - saving %s process encodings to %s" %
+                    (self.id, len(enc.keys()), out_path))
+            with open(out_path, "a") as f:
+                for pid, encodings in enc.items():
+                    f.write("%s\n" % ",".join(map(str, encodings)))
 
 
 class ZippedSample(object):
