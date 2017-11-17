@@ -6,6 +6,7 @@
 from common import *
 
 import os
+from datetime import datetime
 
 import numpy as np
 import tensorflow as tf
@@ -57,6 +58,13 @@ Confusion matrix:
     print(results)
 
 
+def generate_run_id(bundle_name):
+    run_timestamp = str(datetime.now()).split('.')[0] \
+                                       .replace(" ", "_") \
+                                       .replace(":", "-")
+    return "{}_{}".format(run_timestamp, bundle_name)
+
+
 def main():
     config = configparser.ConfigParser()
     config.read([args.config])
@@ -99,11 +107,10 @@ def main():
                              learning_rate=args.learningrate)
     model = tflearn.DNN(net, clip_gradients=5.0, tensorboard_verbose=3)
 
-    #run_timestamp = str(datetime.now()).split('.')[0].replace(" ", "_").replace(":", "-")
-
+    run_id = generate_run_id(args.bundle)
 
     model.fit(input_vec, output_vec, n_epoch=args.numepochs, validation_set=0.3,
-              show_metric=True, batch_size=batch_size)#, run_id=run_timestamp)
+              show_metric=True, batch_size=batch_size, run_id=run_id)
 
     net_output = model.predict(input_vec)
 
