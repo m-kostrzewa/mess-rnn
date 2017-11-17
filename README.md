@@ -32,15 +32,25 @@ samples is easy.
 
 1. Analyze samples in some subdir
 ```
-python3 analyze.py --dir Locky/2016.12 --config mess-rnn.cfg
+python3 analyze.py --dir Locky/2016.12
 ```
 
 2. Preprocess raw .zip files to integer encodings of operations
 ```
-python3 preprocess.py --dir Locky/2016.12 --config mess-rnn.cfg
+python3 preprocess.py --dir Locky/2016.12
 ```
 
 3. Combine encodings into train and test sets (bundles)
 ```
-python3 bundle.py --dir Locky/2016.12 --config mess-rnn.cfg --name bundle_name
+python3 bundle.py --dir Locky/2016.12 --name bundle_name
+```
+
+4. Train the model
+```
+python3 train.py --name bundle_name
+```
+
+5. Run tensorboard to analyze learning process
+```
+tensorboard --logdir $tensorboard_dir_from_cfg
 ```
