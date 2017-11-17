@@ -13,7 +13,7 @@ source mess-rnn-venv/bin/activate
 3. Install requirements
 ```
 cd mess-rnn
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
 # Workspace
