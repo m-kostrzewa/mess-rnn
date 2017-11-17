@@ -25,6 +25,8 @@ parser.add_argument("--learningrate", type=float, default=0.02,
                     help="Learning rate")
 parser.add_argument("--numunits", type=int, default=64,
                     help="Number of LSTM units")
+parser.add_argument("--numepochs", type=int, default=2,
+                    help="Number of training epochs")
 parser.add_argument("--activationfunc", type=str, default="tanh",
                     help="Activation function")
 parser.add_argument("--objectivefunc", type=str, default="roc_auc_score",
@@ -63,18 +65,22 @@ def main():
     log.info("Input vec shape: {}, Output vec shape: {}"
              .format(input_vec.shape,output_vec.shape))
 
-    # num_outputs = 2
-    # net = tflearn.input_data([None, batch_size, embedding_len])
-    # #net = tflearn.rnn(net, BasicLSTMCell(args.numunits))# BasicLSTMCell(args.numunits), name="bidir_layer")
-    # net = tflearn.simple_rnn(net, activation=args.activationfunc,
-    #                          n_units=args.numunits)
-    # #net = tflearn.dropout(net, 0.5)
-    # #net = tf.Print(net, [net], message="activations are:", summarize=0, name="activations")
-    # net = tflearn.fully_connected(net, num_outputs, activation="softmax",
-    #                               name="fc_layer")
-    # net = tflearn.regression(net, optimizer="adam", loss=args.objectivefunc,
-    #                          learning_rate=args.learningrate)
-    # model = tflearn.DNN(net, clip_gradients=5.0, tensorboard_verbose=3)
+    num_outputs = 2
+    net = tflearn.input_data([None, batch_size, embedding_len])
+    net = tflearn.simple_rnn(net, activation=args.activationfunc,
+                             n_units=args.numunits)
+    net = tflearn.dropout(net, 0.5)
+    net = tflearn.fully_connected(net, num_outputs, activation="softmax",
+                                  name="fc_layer")
+    net = tflearn.regression(net, optimizer="adam", loss=args.objectivefunc,
+                             learning_rate=args.learningrate)
+    model = tflearn.DNN(net, clip_gradients=5.0, tensorboard_verbose=3)
+
+    #run_timestamp = str(datetime.now()).split('.')[0].replace(" ", "_").replace(":", "-")
+
+
+    model.fit(input_vec, output_vec, n_epoch=args.numepochs, validation_set=0.3,
+              show_metric=True, batch_size=batch_size)#, run_id=run_timestamp)
 
 
 if __name__ == "__main__":
