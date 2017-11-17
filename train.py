@@ -36,6 +36,66 @@ parser.add_argument("--objectivefunc", type=str, default="roc_auc_score",
                     help="Objective function")
 args = parser.parse_args()
 
+
+def load_bundle(bundles_base_dir, bundle_name):
+    in_vec_fname = generate_bundle_filename(basename=args.bundle,
+                                            is_train=True,
+                                            is_input=True)
+    out_vec_fname = generate_bundle_filename(basename=args.bundle,
+                                             is_train=True,
+                                             is_input=False)
+    in_vec_path = os.path.join(bundles_base_dir, in_vec_fname) + ".npy"
+    out_vec_path = os.path.join(bundles_base_dir, out_vec_fname) + ".npy"
+
+    log.info("Loading from {} and {}.".format(in_vec_path, out_vec_path))
+
+    input_vec = np.load(in_vec_path)
+    output_vec = np.load(out_vec_path)
+    log.debug("Input vec shape: {}, Output vec shape: {}"
+             .format(input_vec.shape, output_vec.shape))
+
+    return input_vec, output_vec
+
+
+def get_shape(input_vec):
+    num_batches = input_vec.shape[0]
+    batch_size = input_vec.shape[1]
+    embedding_len = input_vec.shape[2]
+    log.debug("Num batches = {}; batch size = {}; "
+              "embedding len = {}.".format(num_batches, batch_size,
+                                          embedding_len))
+    return num_batches, batch_size, embedding_len
+
+
+def make_model(batch_size, embedding_len, activation, n_units, loss, 
+        learning_rate):
+    num_outputs = 2
+    net = tflearn.input_data([None, batch_size, embedding_len])
+    net = tflearn.simple_rnn(net,
+                             activation=activation,
+                             n_units=n_units)
+    net = tflearn.dropout(net,
+                          keep_prob=0.5)
+    net = tflearn.fully_connected(net, num_outputs,
+                                  activation="softmax",
+                                  name="fc_layer")
+    net = tflearn.regression(net,
+                             optimizer="adam",
+                             loss=loss,
+                             learning_rate=learning_rate)
+    model = tflearn.DNN(net,
+                        clip_gradients=5.0,
+                        tensorboard_verbose=3)
+    return model
+
+
+def generate_run_id(bundle_name):
+    run_timestamp = str(datetime.now()).split('.')[0] \
+                                       .replace(" ", "_") \
+                                       .replace(":", "-")
+    return "{}_{}".format(run_timestamp, bundle_name)
+
+
 def print_metrics(predictions, expectations):
     predicted_class = np.asarray(predictions).astype(float).argmax(1)
     expected_class = expectations.argmax(1)
@@ -55,14 +115,7 @@ Confusion matrix:
             sk.metrics.f1_score(expected_class, predicted_class),
             sk.metrics.confusion_matrix(expected_class, predicted_class))
 
-    print(results)
-
-
-def generate_run_id(bundle_name):
-    run_timestamp = str(datetime.now()).split('.')[0] \
-                                       .replace(" ", "_") \
-                                       .replace(":", "-")
-    return "{}_{}".format(run_timestamp, bundle_name)
+    log.info(results)
 
 
 def main():
@@ -71,49 +124,22 @@ def main():
     init_logger(config)
     bundles_base_dir = config.get("Train", "bundles_base_dir")
 
-    in_vec_fname = generate_bundle_filename(basename=args.bundle,
-                                            is_train=True,
-                                            is_input=True)
-    in_vec_path = os.path.join(bundles_base_dir, in_vec_fname) + ".npy"
+    input_vec, output_vec = load_bundle(bundles_base_dir, args.bundle)
+    num_batches, batch_size, embedding_len = get_shape(input_vec)
 
-    out_vec_fname = generate_bundle_filename(basename=args.bundle,
-                                             is_train=True,
-                                             is_input=False)
-    out_vec_path = os.path.join(bundles_base_dir, out_vec_fname) + ".npy"
-
-    log.info("Loading from {} and {}.".format(in_vec_path, out_vec_path))
-
-    input_vec = np.load(in_vec_path)
-    output_vec = np.load(out_vec_path)
-
-    num_batches = input_vec.shape[0]
-    batch_size = input_vec.shape[1]
-    embedding_len = input_vec.shape[2]
-
-    log.info("Loaded training data. Num batches = {}; batch size = {}; "
-             "embedding len = {}.".format(num_batches, batch_size,
-                                          embedding_len))
-    log.info("Input vec shape: {}, Output vec shape: {}"
-             .format(input_vec.shape, output_vec.shape))
-
-    num_outputs = 2
-    net = tflearn.input_data([None, batch_size, embedding_len])
-    net = tflearn.simple_rnn(net, activation=args.activationfunc,
-                             n_units=args.numunits)
-    net = tflearn.dropout(net, 0.5)
-    net = tflearn.fully_connected(net, num_outputs, activation="softmax",
-                                  name="fc_layer")
-    net = tflearn.regression(net, optimizer="adam", loss=args.objectivefunc,
-                             learning_rate=args.learningrate)
-    model = tflearn.DNN(net, clip_gradients=5.0, tensorboard_verbose=3)
+    model = make_model(batch_size, embedding_len,
+                       activation=args.activationfunc,
+                       n_units=args.numunits,
+                       loss=args.objectivefunc,
+                       learning_rate=args.learningrate)
 
     run_id = generate_run_id(args.bundle)
-
+    log.info("Training model...")
     model.fit(input_vec, output_vec, n_epoch=args.numepochs, validation_set=0.3,
               show_metric=True, batch_size=batch_size, run_id=run_id)
 
+    log.info("Predicting across the whole input vector...")
     net_output = model.predict(input_vec)
-
     print_metrics(predictions=net_output, expectations=output_vec)
 
 
