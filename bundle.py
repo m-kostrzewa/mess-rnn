@@ -21,7 +21,7 @@ parser.add_argument("--dir", type=str, required=True,
                          "input base dir specified in config file. It is "
                          "also the name of output directory under base output "
                          "dir, also specified in config file.")
-parser.add_argument("--config", type=str,
+parser.add_argument("--config", type=str, default="mess-rnn.cfg",
                     help="Filepath to config file.")
 parser.add_argument("--batch_size", type=int, default=50,
                     help="Size of batch")

@@ -19,7 +19,7 @@ parser.add_argument("--bundle", type=str, required=True,
                     help="Name of bundle containing the dataset to train on. "
                          "It must be in bundles base dir specified in config "
                          "file.")
-parser.add_argument("--config", type=str,
+parser.add_argument("--config", type=str, default="mess-rnn.cfg",
                     help="Filepath to config file.")
 parser.add_argument("--learningrate", type=float, default=0.02,
                     help="Learning rate")
