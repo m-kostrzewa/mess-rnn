@@ -22,11 +22,25 @@ log = logging.getLogger("train")
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--bundle", type=str, required=True,
-                        help="Name of bundle containing the dataset to train on. "
-                            "It must be in bundles base dir specified in config "
-                            "file.")
+                        help="Name of bundle containing the dataset to train "
+                             "or test, depending on --train flag."
+                             "It must be in bundles base dir specified in config "
+                             "file.")
     parser.add_argument("--config", type=str, default="mess-rnn.cfg",
                         help="Filepath to config file.")
+
+    parser.add_argument("--train", action="store_true",
+                        help="If true, will train the network and test it on "
+                             "the whole dataset at the end. If --pretrained "
+                             "is not specified, will create a new pretrained. "
+                             "If --pretrained is specified, will start "
+                             "training using that pretrained model."
+                             "If false, will only test on the whole dataset, "
+                             "but pretrained MUST be specified.")
+    parser.add_argument("--pretrained", type=str, default="",
+                        help="pretrained checkpoint name to load and use "
+                             "weights from. If train flag is used, will start "
+                             "from the checkpoint.")
 
     parser.add_argument("--numepochs", type=int, default=2,
                         help="Number of training epochs")
@@ -60,11 +74,22 @@ def get_hyperparams(args):
 
 def get_tflearn_meta(config):
     TFMeta = namedtuple("TFMeta", ["tensorboard_dir",
-                                   "best_checkpoint_path"])
-    t = TFMeta(tensorboard_dir=config.get("Train", "tensorboard_dir"),
-               best_checkpoint_path=config.get("Train", "best_checkpoint_path"))
+                                   "best_checkpoint_dir"])
+    t = TFMeta(tensorboard_dir=config.get("Rnn", "tensorboard_dir"),
+               best_checkpoint_dir=config.get("Rnn", "best_checkpoint_dir"))
     log.debug(t)
     return t
+
+
+def generate_model_name(bundle_name):
+    run_timestamp = str(datetime.now()).split('.')[0] \
+                                       .replace(" ", "_") \
+                                       .replace(":", "-")
+    return "{}_{}".format(run_timestamp, bundle_name)
+
+
+def get_model_path(model_dir, model_name):
+    return os.path.join(model_dir, model_name)
 
 
 def load_bundle(bundles_base_dir, bundle_name):
@@ -101,7 +126,7 @@ def get_shape(input_vec):
     return s
 
 
-def make_model(data_shape, hyperparams, tf_meta):
+def make_model(data_shape, hyperparams, tf_meta, model_name):
     num_outputs = 2
     net = tflearn.input_data([None,
                               data_shape.batch_size,
@@ -118,30 +143,31 @@ def make_model(data_shape, hyperparams, tf_meta):
                              optimizer="adam",
                              loss=hyperparams.loss,
                              learning_rate=hyperparams.learning_rate)
+
+    model_path = get_model_path(tf_meta.best_checkpoint_dir, model_name)
     model = tflearn.DNN(net,
                         clip_gradients=5.0,
                         tensorboard_verbose=3,
                         tensorboard_dir=tf_meta.tensorboard_dir,
-                        best_checkpoint_path=tf_meta.best_checkpoint_path)
+                        best_checkpoint_path=model_path)
     return model
 
 
-def generate_run_id(bundle_name):
-    run_timestamp = str(datetime.now()).split('.')[0] \
-                                       .replace(" ", "_") \
-                                       .replace(":", "-")
-    return "{}_{}".format(run_timestamp, bundle_name)
+def load_weights(model, pretrained_name, tf_meta):
+    pretrained_path = get_model_path(tf_meta.best_checkpoint_dir,
+                                     pretrained_name)
+    model.load(pretrained_path)
+    return model
 
 
-def fit_model(model, input_vec, output_vec, bundle, data_shape, hyperparams):
+def fit_model(model, input_vec, output_vec, model_name, data_shape, hyperparams):
     log.info("Training model...")
-    run_id = generate_run_id(bundle)
     model.fit(input_vec, output_vec,
               n_epoch=hyperparams.num_epochs,
               validation_set=0.3,
               show_metric=True,
               batch_size=data_shape.batch_size,
-              run_id=run_id)
+              run_id=model_name)
 
 
 def print_metrics(predictions, expectations):
@@ -168,16 +194,25 @@ def main():
     config = configparser.ConfigParser()
     config.read([args.config])
     init_logger(config)
-    bundles_base_dir = config.get("Train", "bundles_base_dir")
+    bundles_base_dir = config.get("Rnn", "bundles_base_dir")
 
-    bundle = args.bundle
-    input_vec, output_vec = load_bundle(bundles_base_dir, bundle)
+    bundle_name = args.bundle
+    input_vec, output_vec = load_bundle(bundles_base_dir, bundle_name)
     data_shape = get_shape(input_vec)
 
     hyperparams = get_hyperparams(args)
     tf_meta = get_tflearn_meta(config)
-    model = make_model(data_shape, hyperparams, tf_meta)
-    fit_model(model, input_vec, output_vec, bundle, data_shape, hyperparams)
+
+    model_name = generate_model_name(bundle_name)
+    log.info("Model name of this run: %s" % model_name)
+    model = make_model(data_shape, hyperparams, tf_meta, model_name)
+
+    if args.pretrained != "":
+        model = load_weights(model, args.pretrained, tf_meta)
+
+    if args.train:
+        fit_model(model, input_vec, output_vec, model_name, data_shape,
+                  hyperparams)
 
     log.info("Predicting across the whole input vector...")
     net_output = model.predict(input_vec)

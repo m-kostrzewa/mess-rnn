@@ -47,10 +47,20 @@ python3 bundle.py --dir Locky/2016.12 --name bundle_name
 
 4. Train the model
 ```
-python3 train.py --name bundle_name
+python3 rnn.py --name bundle_name --train
 ```
 
 5. Run tensorboard to analyze learning process
 ```
 tensorboard --logdir $tensorboard_dir_from_cfg
+```
+
+6. You may train a previously trained model further
+```
+python3 rnn.py --bundle abcd --train --pretrained 2017-11-17_19-37-05_abcd9971
+```
+
+7. Or you may just test on the input bundle, using a pretrained model
+```
+python3 rnn.py --bundle abcd --train --pretrained 2017-11-17_19-37-05_abcd9971
 ```
