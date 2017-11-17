@@ -10,9 +10,11 @@ import os
 import numpy as np
 import tensorflow as tf
 import tflearn
+import sklearn as sk
+import sklearn.metrics
 # from tflearn.layers.recurrent import bidirectional_rnn, BasicLSTMCell
 
-log = logging.getLogger("bundle")
+log = logging.getLogger("train")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--bundle", type=str, required=True,
@@ -32,6 +34,27 @@ parser.add_argument("--activationfunc", type=str, default="tanh",
 parser.add_argument("--objectivefunc", type=str, default="roc_auc_score",
                     help="Objective function")
 args = parser.parse_args()
+
+def print_metrics(predictions, expectations):
+    predicted_class = np.asarray(predictions).astype(float).argmax(1)
+    expected_class = expectations.argmax(1)
+
+    results = \
+        """
+Accuracy: {}
+Precision: {}
+Recall: {}
+F1: {}
+Confusion matrix:
+{}
+        """.format(
+            sk.metrics.accuracy_score(expected_class, predicted_class),
+            sk.metrics.precision_score(expected_class, predicted_class),
+            sk.metrics.recall_score(expected_class, predicted_class),
+            sk.metrics.f1_score(expected_class, predicted_class),
+            sk.metrics.confusion_matrix(expected_class, predicted_class))
+
+    print(results)
 
 
 def main():
@@ -63,7 +86,7 @@ def main():
              "embedding len = {}.".format(num_batches, batch_size,
                                           embedding_len))
     log.info("Input vec shape: {}, Output vec shape: {}"
-             .format(input_vec.shape,output_vec.shape))
+             .format(input_vec.shape, output_vec.shape))
 
     num_outputs = 2
     net = tflearn.input_data([None, batch_size, embedding_len])
@@ -81,6 +104,10 @@ def main():
 
     model.fit(input_vec, output_vec, n_epoch=args.numepochs, validation_set=0.3,
               show_metric=True, batch_size=batch_size)#, run_id=run_timestamp)
+
+    net_output = model.predict(input_vec)
+
+    print_metrics(predictions=net_output, expectations=output_vec)
 
 
 if __name__ == "__main__":
