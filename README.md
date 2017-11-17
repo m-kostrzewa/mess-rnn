@@ -41,8 +41,6 @@ from data collection to testing the model.
 
 ## analyze.py
 
----
-
 Schedules analysis of executable sample files in MESS sandbox and
 collects results. Multiple workers can be running at the same time.
 
@@ -104,8 +102,6 @@ input directory specified in the configuration file.
 
 ## preprocess.py
 
----
-
 Unpacks zipped results from MESS analysis. Doing so, updates the dictionary
 of encountered function calls and saves their encoded sequence for each
 PID, dividing them into malevolent and benevolent.
@@ -118,8 +114,6 @@ python3 preprocess.py --dir Locky/2016.12
 ```
 
 ## bundle.py
-
----
 
 Takes encoded history of each process in specified subdirectory and outputs
 numpy datasets easily digestible in Tensorflow. Also, splits those datasets
@@ -135,8 +129,6 @@ to a subdirectory, and then calling this script with that subdir as argument.
 Bundle will be created recursively of all encodings under that subdir.
 
 ## rnn.py
-
----
 
 Invokes tensorflow neural network. This script can be used to train a network,
 load weights from previously trained network or just test it on some data.
