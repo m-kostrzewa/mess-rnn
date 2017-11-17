@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 #
-# Trains a neural network on previously prepared bundles. Saves the model.
+# Invokes tensorflow neural network. This script can be used to train a network,
+# load weights from previously trained network or just test it on some data.
 #
 
 from common import *
@@ -16,7 +17,7 @@ import sklearn as sk
 import sklearn.metrics
 # from tflearn.layers.recurrent import bidirectional_rnn, BasicLSTMCell
 
-log = logging.getLogger("train")
+log = logging.getLogger("rnn")
 
 
 def parse_args():
@@ -75,8 +76,9 @@ def get_hyperparams(args):
 def get_tflearn_meta(config):
     TFMeta = namedtuple("TFMeta", ["tensorboard_dir",
                                    "best_checkpoint_dir"])
-    t = TFMeta(tensorboard_dir=config.get("Rnn", "tensorboard_dir"),
-               best_checkpoint_dir=config.get("Rnn", "best_checkpoint_dir"))
+    t = TFMeta(tensorboard_dir=config.get("Workspace", "tensorboard_dir"),
+               best_checkpoint_dir=config.get("Workspace",
+                                              "best_checkpoint_dir"))
     log.debug(t)
     return t
 
@@ -194,7 +196,7 @@ def main():
     config = configparser.ConfigParser()
     config.read([args.config])
     init_logger(config)
-    bundles_base_dir = config.get("Rnn", "bundles_base_dir")
+    bundles_base_dir = config.get("Workspace", "bundles_base_dir")
 
     bundle_name = args.bundle
     input_vec, output_vec = load_bundle(bundles_base_dir, bundle_name)

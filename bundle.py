@@ -64,7 +64,7 @@ def collect_stats(files_glob):
 
 
 def calculate_embedding_len(config):
-    p = config.get("Common", "dictionary_path")
+    p = config.get("Workspace", "dictionary_path")
     opcodes_dict = load_operation_dict(p)
     embedding_len = max(opcodes_dict.values()) + 1
     log.info("Embedding len: %s" % embedding_len)
@@ -149,8 +149,8 @@ def main():
     config = configparser.ConfigParser()
     config.read([args.config])
     init_logger(config)
-    IN_BASE_DIR = config.get("Bundle", "input_base_dir")
-    OUT_BASE_DIR = config.get("Bundle", "output_base_dir")
+    IN_BASE_DIR = config.get("Workspace", "encoded_base_dir")
+    OUT_BASE_DIR = config.get("Workspace", "bundles_base_dir")
 
     malevolent_encodings, malevolent_stats = load_encodings(MALEVOLENT_FILENAME)
     benevolent_encodings, benevolent_stats = load_encodings(BENEVOLENT_FILENAME)

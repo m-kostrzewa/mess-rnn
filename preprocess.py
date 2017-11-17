@@ -183,10 +183,10 @@ def main():
     config = configparser.ConfigParser()
     config.read([args.config])
     init_logger(config)
-    IN_BASE_DIR = config.get("Preprocess", "input_base_dir")
-    OUT_BASE_DIR = config.get("Preprocess", "output_base_dir")
+    IN_BASE_DIR = config.get("Workspace", "analyzed_base_dir")
+    OUT_BASE_DIR = config.get("Workspace", "encoded_base_dir")
 
-    dict_path = config.get("Common", "dictionary_path")
+    dict_path = config.get("Workspace", "dictionary_path")
     op_dict = OperationDict(dict_path)
 
     zip_queue = queue.Queue()

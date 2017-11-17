@@ -207,8 +207,8 @@ def main():
     config = configparser.ConfigParser()
     config.read([args.config])
     init_logger(config)
-    IN_BASE_DIR = config.get("Analyze", "input_base_dir")
-    OUT_BASE_DIR = config.get("Analyze", "output_base_dir")
+    IN_BASE_DIR = config.get("Workspace", "raw_base_dir")
+    OUT_BASE_DIR = config.get("Workspace", "analyzed_base_dir")
     sample_descriptor = load_sample_descriptors()
 
     samples_queue = queue.Queue()
