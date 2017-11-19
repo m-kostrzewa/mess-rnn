@@ -30,19 +30,20 @@ def main():
     analyze(samples_paths, descriptors_paths)
 
 
-def init(config_path):
-    config.read([config_path])
-    init_logger(config)
-
-
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=str, required=True,
-                        help="Path to input sample or directory containing "
-                             "samples. Relative to raw_base_dir in config.")
+                        help="Path to directory containing samples and sample "
+                             "descriptors (if needed). Must be relative to "
+                             "raw_base_dir in config.")
     parser.add_argument("--config", type=str, default="mess-rnn.cfg",
                         help="Config filepath.")
     return parser.parse_args()
+
+
+def init(config_path):
+    config.read([config_path])
+    init_logger(config)
 
 
 def find_files_recursive(directory, filetype):
