@@ -46,26 +46,27 @@ def init(config_path):
     init_logger(config)
 
 
-def find_files_recursive(directory, filetype):
-    return glob.glob("%s/*.%s" % (directory, filetype), recursive=True)
-
-
 def analyze(samples_paths, descriptors_paths):
     descriptor = load_sample_descriptors(descriptors_paths)
+
+    samples_queue = queue.Queue()
+    output_queue = queue.Queue()
+    out_base_dir = config.get("Workspace", "analyzed_base_dir")
+    worker_threads = start_workers(config, samples_queue, output_queue,
+                                   out_base_dir)
 
     target_name = config.get("Common", "sample_target_name")
     samples_base_dir = config.get("Workspace", "raw_base_dir")
     samples = make_samples(samples_paths, samples_base_dir, target_name,
                            descriptor)
-
-    samples_queue = queue.Queue()
-    out_base_dir = config.get("Workspace", "analyzed_base_dir")
-    worker_threads = start_workers(config, samples_queue, out_base_dir)
-
     enqueue_samples(samples_queue, samples)
-    samples_queue.join()
 
+    samples_queue.join()
     stop_workers(samples_queue, worker_threads)
+
+    out_paths = read_all_queue(output_queue)
+    log.info("Output zipfile paths: %s" % out_paths)
+    return out_paths
 
 
 def load_sample_descriptors(descriptors_paths):
@@ -96,7 +97,7 @@ def make_samples(samples_paths, samples_base_dir, target_name, descriptor):
     return samples
 
 
-def start_workers(config, queue, out_base_dir):
+def start_workers(config, queue, output_queue, out_base_dir):
     toolkit = config.get("Analyze", "toolkit")
     sleep_time_minutes = int(config.get("Analyze", "sleep_time_minutes"))
     results_url = config.get("MESS", "results_url")
@@ -107,10 +108,14 @@ def start_workers(config, queue, out_base_dir):
     for (i, worker) in enumerate(workers):
         vm_name = config.get(worker, "vm_name")
         snapshot_name = config.get(worker, "snapshot_name")
-        m = MessWorker(i, queue, proxy_url=proxy_url, toolkit=toolkit,
+        m = MessWorker(i, queue, output_queue,
+                       proxy_url=proxy_url,
+                       toolkit=toolkit,
                        sleep_time_minutes=sleep_time_minutes,
-                       results_url=results_url, vm_name=vm_name,
-                       snapshot_name=snapshot_name, out_base_dir=out_base_dir)
+                       results_url=results_url,
+                       vm_name=vm_name,
+                       snapshot_name=snapshot_name,
+                       out_base_dir=out_base_dir)
         m.start()
         worker_threads.append(m)
     return worker_threads
@@ -181,11 +186,13 @@ class Sample(object):
 
 
 class MessWorker(threading.Thread):
-    def __init__(self, id, queue, proxy_url, toolkit, sleep_time_minutes, 
-                 results_url, vm_name, snapshot_name, out_base_dir):
+    def __init__(self, id, queue, output_queue, proxy_url, toolkit,
+                 sleep_time_minutes, results_url, vm_name, snapshot_name,
+                 out_base_dir):
         super().__init__()
         self.id = id
         self.queue = queue
+        self.output_queue = output_queue
         self.proxy_url = proxy_url
         self.mess = xmlrpc.client.ServerProxy(proxy_url)
         self.toolkit = toolkit
@@ -249,6 +256,7 @@ class MessWorker(threading.Thread):
 
             result_url = "%s/%s" % (self.results_url, result_filename)
             urllib.request.urlretrieve(result_url, out_path)
+            self.output_queue.put(out_path)
             log.info("MessWorker %s - saved sample to %s" % (self.id, out_path))
 
 

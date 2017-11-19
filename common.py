@@ -10,15 +10,28 @@ import logging
 import logging.config
 import os.path
 
-IN_BASE_DIR = "."
-OUT_BASE_DIR = "."
+TARGET_PROCESS_FILENAME = "target.txt"
+OTHER_PROCESSES_FILENAME = "others.txt"
 
-BENEVOLENT_FILENAME = "benevolent.txt"
-MALEVOLENT_FILENAME = "malevolent.txt"
 
 def init_logger(config):
     log_cfg_path = config.get("Common", "logging_cfg")
     logging.config.fileConfig(log_cfg_path)
+
+
+def find_files_recursive(directory, filetype):
+    return glob.glob("%s/*.%s" % (directory, filetype), recursive=True)
+
+
+def read_all_queue(output_queue):
+    buf = []
+    try:
+        item = output_queue.get_nowait()
+        buf.append(item)
+    except queue.Empty:
+        pass
+    return buf
+
 
 def load_operation_dict(filepath):
     result = {}
@@ -28,6 +41,7 @@ def load_operation_dict(filepath):
                 op_name, op_code = line.rstrip().split(":")
                 result[op_name] = int(op_code)
     return result
+
 
 def generate_bundle_filename(basename, is_train, is_input):
     return "{}_{}_{}_vec".format(basename,
