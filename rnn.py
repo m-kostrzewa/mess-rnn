@@ -7,8 +7,10 @@
 from common import *
 
 import os
+import glob
 from datetime import datetime
 from collections import namedtuple
+import pickle
 
 import numpy as np
 import tensorflow as tf
@@ -18,6 +20,55 @@ import sklearn.metrics
 # from tflearn.layers.recurrent import bidirectional_rnn, BasicLSTMCell
 
 log = logging.getLogger("rnn")
+config = configparser.ConfigParser()
+
+
+Hyperparams = namedtuple("Hyperparams", ["num_epochs",
+                                         "learning_rate",
+                                         "n_units",
+                                         "activation",
+                                         "loss"])
+
+
+def main():
+    args = parse_args()
+    init(args.config)
+    bundles_base_dir = config.get("Workspace", "bundles_base_dir")
+    weights_base_dir = config.get("Workspace", "weights_base_dir")
+    hparams_dir = config.get("Workspace", "hyperparams_base_dir")
+
+    bundle_name = args.bundle
+    input_vec, output_vec = load_bundle(bundles_base_dir, bundle_name)
+    tensorboard_dir = config.get("Workspace", "tensorboard_dir")
+
+    if args.model is None:
+        model_name = generate_model_name(bundle_name)
+    else:
+        model_name = args.model
+    log.info("Model name of this run: %s" % model_name)
+
+    if args.load:
+        hyperparams = load_hyperparams(model_name, hparams_dir)
+    else:
+        hyperparams = get_hyperparams(args)
+        save_hyperparams(hyperparams, model_name, hparams_dir)
+    log.info(hyperparams)
+
+    data_shape = get_shape(input_vec)
+    model = make_model(data_shape, hyperparams, tensorboard_dir, model_name)
+
+    if args.load:
+        model = load_weights(model, model_name, weights_base_dir)
+
+    if args.train:
+        train(model, input_vec, output_vec, model_name, data_shape,
+              hyperparams)
+        save_weights(model, model_name, weights_base_dir)
+
+    log.info("Predicting across the whole input vector...")
+    net_output = model.predict(input_vec)
+    print_metrics(predictions=net_output, expectations=output_vec)
+    return net_output
 
 
 def parse_args():
@@ -38,10 +89,14 @@ def parse_args():
                              "training using that pretrained model."
                              "If false, will only test on the whole dataset, "
                              "but pretrained MUST be specified.")
-    parser.add_argument("--pretrained", type=str, default="",
-                        help="pretrained checkpoint name to load and use "
-                             "weights from. If train flag is used, will start "
-                             "from the checkpoint.")
+    parser.add_argument("--model", type=str, default=None,
+                        help="Name of trained model to use. Must be relative "
+                             "to best_checkpoint_dir in config. If not "
+                             "specified, a new name will be generated.")
+    parser.add_argument("--load", action="store_true",
+                        help="Whether to load model hyperparameters and "
+                             "weights. If false, will get hyperparameters "
+                             "based on other arguments.")
 
     parser.add_argument("--numepochs", type=int, default=2,
                         help="Number of training epochs")
@@ -58,40 +113,9 @@ def parse_args():
     return args
 
 
-def get_hyperparams(args):
-    Hyperparams = namedtuple("Hyperparams", ["num_epochs",
-                                             "learning_rate",
-                                             "n_units",
-                                             "activation",
-                                             "loss"])
-    h = Hyperparams(num_epochs=args.numepochs,
-                    learning_rate=args.learningrate,
-                    n_units=args.numunits,
-                    activation=args.activationfunc,
-                    loss=args.objectivefunc)
-    log.debug(h)
-    return h
-
-
-def get_tflearn_meta(config):
-    TFMeta = namedtuple("TFMeta", ["tensorboard_dir",
-                                   "best_checkpoint_dir"])
-    t = TFMeta(tensorboard_dir=config.get("Workspace", "tensorboard_dir"),
-               best_checkpoint_dir=config.get("Workspace",
-                                              "best_checkpoint_dir"))
-    log.debug(t)
-    return t
-
-
-def generate_model_name(bundle_name):
-    run_timestamp = str(datetime.now()).split('.')[0] \
-                                       .replace(" ", "_") \
-                                       .replace(":", "-")
-    return "{}_{}".format(run_timestamp, bundle_name)
-
-
-def get_model_path(model_dir, model_name):
-    return os.path.join(model_dir, model_name)
+def init(config_path):
+    config.read([config_path])
+    init_logger(config)
 
 
 def load_bundle(bundles_base_dir, bundle_name):
@@ -114,6 +138,50 @@ def load_bundle(bundles_base_dir, bundle_name):
     return input_vec, output_vec
 
 
+def get_tflearn_meta(config):
+    TFMeta = namedtuple("TFMeta", ["tensorboard_dir",
+                                   "best_checkpoint_dir"])
+    t = TFMeta(tensorboard_dir=config.get("Workspace", "tensorboard_dir"),
+               best_checkpoint_dir=config.get("Workspace",
+                                              "best_checkpoint_dir"))
+    log.debug(t)
+    return t
+
+
+def generate_model_name(bundle_name):
+    run_timestamp = str(datetime.now()).split('.')[0] \
+                                       .replace(" ", "_") \
+                                       .replace(":", "-")
+    return "{}_{}".format(run_timestamp, bundle_name)
+
+
+def get_hyperparams(args):
+    h = Hyperparams(num_epochs=args.numepochs,
+                    learning_rate=args.learningrate,
+                    n_units=args.numunits,
+                    activation=args.activationfunc,
+                    loss=args.objectivefunc)
+    log.debug(h)
+    return h
+
+
+def load_hyperparams(model_name, hparams_dir):
+    hyperparams_path = os.path.join(hparams_dir, model_name)
+    log.info("Loading hyperparams from %s" % hyperparams_path)
+    with open(hyperparams_path, "rb") as f:
+        hyperparams = pickle.load(f)
+    return hyperparams
+
+
+def save_hyperparams(hyperparams, model_name, hparams_dir):
+    hyperparams_path = os.path.join(hparams_dir, model_name)
+    log.info("Saving hyperparams to %s" % hyperparams_path)
+    if not os.path.exists(hparams_dir):
+        os.makedirs(hparams_dir)
+    with open(hyperparams_path, "wb") as f:
+        pickle.dump(hyperparams, f)
+
+
 def get_shape(input_vec):
     num_batches = input_vec.shape[0]
     batch_size = input_vec.shape[1]
@@ -128,7 +196,7 @@ def get_shape(input_vec):
     return s
 
 
-def make_model(data_shape, hyperparams, tf_meta, model_name):
+def make_model(data_shape, hyperparams, tensorboard_dir, model_name):
     num_outputs = 2
     net = tflearn.input_data([None,
                               data_shape.batch_size,
@@ -146,23 +214,31 @@ def make_model(data_shape, hyperparams, tf_meta, model_name):
                              loss=hyperparams.loss,
                              learning_rate=hyperparams.learning_rate)
 
-    model_path = get_model_path(tf_meta.best_checkpoint_dir, model_name)
     model = tflearn.DNN(net,
                         clip_gradients=5.0,
                         tensorboard_verbose=3,
-                        tensorboard_dir=tf_meta.tensorboard_dir,
-                        best_checkpoint_path=model_path)
+                        tensorboard_dir=tensorboard_dir)
     return model
 
 
-def load_weights(model, pretrained_name, tf_meta):
-    pretrained_path = get_model_path(tf_meta.best_checkpoint_dir,
-                                     pretrained_name)
-    model.load(pretrained_path)
+def load_weights(model, model_name, weights_base_dir):
+    weights_path = get_model_path(weights_base_dir, model_name)
+    log.info("Loading weights from %s" % model_path)
+    model.load(weights_path)
     return model
 
 
-def fit_model(model, input_vec, output_vec, model_name, data_shape, hyperparams):
+def save_weights(model, model_name, weights_base_dir):
+    model_path = get_model_path(weights_base_dir, model_name)
+    log.info("Saving weights to %s" % model_path)
+    model.save(model_path)
+
+
+def get_model_path(model_dir, model_name):
+    return os.path.join(model_dir, model_name)
+
+
+def train(model, input_vec, output_vec, model_name, data_shape, hyperparams):
     log.info("Training model...")
     model.fit(input_vec, output_vec,
               n_epoch=hyperparams.num_epochs,
@@ -189,36 +265,6 @@ Confusion matrix:
                    sk.metrics.f1_score(exp_class, pred_class),
                    sk.metrics.confusion_matrix(exp_class, pred_class))
     log.info(results_string)
-
-
-def main():
-    args = parse_args()
-    config = configparser.ConfigParser()
-    config.read([args.config])
-    init_logger(config)
-    bundles_base_dir = config.get("Workspace", "bundles_base_dir")
-
-    bundle_name = args.bundle
-    input_vec, output_vec = load_bundle(bundles_base_dir, bundle_name)
-    data_shape = get_shape(input_vec)
-
-    hyperparams = get_hyperparams(args)
-    tf_meta = get_tflearn_meta(config)
-
-    model_name = generate_model_name(bundle_name)
-    log.info("Model name of this run: %s" % model_name)
-    model = make_model(data_shape, hyperparams, tf_meta, model_name)
-
-    if args.pretrained != "":
-        model = load_weights(model, args.pretrained, tf_meta)
-
-    if args.train:
-        fit_model(model, input_vec, output_vec, model_name, data_shape,
-                  hyperparams)
-
-    log.info("Predicting across the whole input vector...")
-    net_output = model.predict(input_vec)
-    print_metrics(predictions=net_output, expectations=output_vec)
 
 
 if __name__ == "__main__":
