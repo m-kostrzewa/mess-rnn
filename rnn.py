@@ -23,13 +23,6 @@ log = logging.getLogger("rnn")
 config = configparser.ConfigParser()
 
 
-Hyperparams = namedtuple("Hyperparams", ["num_epochs",
-                                         "learning_rate",
-                                         "n_units",
-                                         "activation",
-                                         "loss"])
-
-
 def main():
     args = parse_args()
     init(args.config)
@@ -223,7 +216,7 @@ def make_model(data_shape, hyperparams, tensorboard_dir, model_name):
 
 def load_weights(model, model_name, weights_base_dir):
     weights_path = get_model_path(weights_base_dir, model_name)
-    log.info("Loading weights from %s" % model_path)
+    log.info("Loading weights from %s" % weights_path)
     model.load(weights_path)
     return model
 

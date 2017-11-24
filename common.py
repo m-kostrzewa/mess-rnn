@@ -9,6 +9,7 @@ import threading
 import logging
 import logging.config
 import os.path
+from collections import namedtuple
 
 TARGET_PROCESS_FILENAME = "target.txt"
 OTHER_PROCESSES_FILENAME = "others.txt"
@@ -48,3 +49,10 @@ def generate_bundle_filename(basename, is_train, is_input):
     return "{}_{}_{}_vec".format(basename,
                                  ("train" if is_train else "test"),
                                  ("input" if is_input else "output"))
+
+
+Hyperparams = namedtuple("Hyperparams", ["num_epochs",
+                                         "learning_rate",
+                                         "n_units",
+                                         "activation",
+                                         "loss"])
