@@ -6,11 +6,8 @@ $StdoutPath = "$ResultsDir\out.txt"
 
 Start-Transcript -Path $StdoutPath
 
-$OutProcessListPath = "$ResultsDir\ps.log"
-$OutProcessListPath
-
-$OutCsvPath = "$ResultsDir\procmon.csv"
-$OutCsvPath
+$OutPsPath = "$ResultsDir\ps.txt"
+$OutPsPath
 
 $OutLsPath = "$ResultsDir\ls.txt"
 $OutLsPath
@@ -18,18 +15,29 @@ $OutLsPath
 $ProcmonPath = Get-ChildItem -Recurse $MessHome | ? -Property Name -eq "Procmon.exe" | Select -ExpandProperty FullName
 $ProcmonPath
 
-Invoke-Expression "$ProcmonPath /Terminate"
+Get-ChildItem -Recurse C:\Mess | Out-File -Append $OutLsPath
+Get-Date | Out-File -Append $OutPsPath
+Get-Process | Out-File -Append $OutPsPath
 
-$PmlPath = Get-ChildItem -Recurse $MessHome | ? -Property Name -like "*.pml" | Select -ExpandProperty FullName
-$PmlPath
+$PmlPaths = Get-ChildItem -Recurse $MessHome | ? -Property Name -like "*.pml" | Select -ExpandProperty FullName
+$PmlPaths
 
-$PmlToCsvCmd = "$ProcmonPath /OpenLog $PmlPath /SaveAs $OutCsvPath"
-$PmlToCsvCmd
+$PmlPaths | % {
 
-Invoke-Expression $PmlToCsvCmd
-Start-Sleep -Seconds 60
+    $Filename = (($_ -split "\\")[-1] -split ".pml")[0]
+    $Filename
 
-Get-ChildItem -Recurse C:\Mess | Out-File $OutLsPath
-Get-Process | Out-File $OutProcessListPath
+    $OutCsvPath = "$ResultsDir\$Filename.csv"
+    $OutCsvPath
+
+    $PmlToCsvCmd = "$ProcmonPath /Quiet /Minimized /AcceptEula /Noconnect /OpenLog $_ /SaveAs $OutCsvPath"
+    Invoke-Expression $PmlToCsvCmd
+
+    $Start = Get-Date
+    $WaitTimeoutMinutes = 5
+    while((Get-Process -Name Procmon) -and (($e = Get-Date) - $Start).Minutes -le $WaitTimeoutMinutes) { 
+        Start-Sleep -s 1
+    }
+}
 
 Stop-Transcript
