@@ -67,6 +67,8 @@ def preprocess(zip_paths, target_name):
 
     out_paths = read_all_queue(output_queue)
     log.info("Output encoding files: %s" % out_paths)
+    if len(out_paths) < 2:
+        log.warning("Expected at least two output encoding files!")
     return out_paths
 
 
@@ -206,11 +208,9 @@ class Worker(threading.Thread):
         return (benevolent_encodings, malevolent_encodings)
 
     def is_malware(self, row, target_name):
-        is_dll_malware = row["Process Name"] == "svchost.exe" and \
-                         "rundll" in row["Path"] and \
-                         target_name in row["Path"]
-        is_exe_malware = row["Process Name"] == target_name
-        return is_dll_malware or is_exe_malware
+        target_name_in_path = target_name in row["Path"]
+        target_is_process = row["Process Name"] == target_name
+        return target_name_in_path or target_is_process
 
     def save_encodings(self, enc, out_path):
         with Worker.__lock:
