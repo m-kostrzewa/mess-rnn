@@ -25,11 +25,12 @@ def find_files_recursive(directory, filetype):
 
 def read_all_queue(output_queue):
     buf = []
-    try:
-        item = output_queue.get_nowait()
-        buf.append(item)
-    except queue.Empty:
-        pass
+    while True:
+        try:
+            item = output_queue.get_nowait()
+            buf.append(item)
+        except queue.Empty:
+            break
     return buf
 
 
