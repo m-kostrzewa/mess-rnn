@@ -28,7 +28,7 @@ def main():
     zips_paths = find_files_recursive(in_abs_dir, "zip")
     target_name = config.get("Common", "sample_target_name")
 
-    preprocess(zips_paths, target_name)
+    preprocess(zips_paths, target_name, read_only_opcode_dict=False)
 
 
 def parse_args():
@@ -47,9 +47,9 @@ def init(config_path):
     init_logger(config)
 
 
-def preprocess(zip_paths, target_name):
+def preprocess(zip_paths, target_name, read_only_opcode_dict):
     dict_path = config.get("Workspace", "dictionary_path")
-    op_dict = OperationDict(dict_path)
+    op_dict = OperationDict(dict_path, read_only=read_only_opcode_dict)
 
     zip_base_dir = config.get("Workspace", "analyzed_base_dir")
     out_base_dir = config.get("Workspace", "encoded_base_dir")
@@ -110,22 +110,32 @@ def stop_workers(queue, threads):
 
 
 class OperationDict(object):
-    def __init__(self, dict_path):
+    def __init__(self, dict_path, read_only=False):
         # TODO: persistence
         self.lock = threading.Lock()
         self.dict_path = dict_path
         self.dict = load_operation_dict(dict_path)
+        self.read_only = read_only
 
     def get(self, key):
+        # returns -1 if in readonly mode and opcode not in the dict
         with self.lock:
             if key not in self.dict.keys():
-                new_idx = self.find_first_unused_idx()
-                self.dict[key] = new_idx
-                with open(self.dict_path, "a+") as persistent_dict:
-                    persistent_dict.write("%s:%s\n" % (key, new_idx))
-                log.debug("'%s' not in dict. Saved it. Index = %s" %
-                          (key, new_idx))
-            return self.dict[key]
+                if self.read_only:
+                    log.debug("'%s' not in dict. Won't save it though, since "
+                              "dict is in read only mode." % key)
+                    opcode = -1
+                else:
+                    new_idx = self.find_first_unused_idx()
+                    self.dict[key] = new_idx
+                    with open(self.dict_path, "a+") as persistent_dict:
+                        persistent_dict.write("%s:%s\n" % (key, new_idx))
+                    log.debug("'%s' not in dict. Saved it. Index = %s" %
+                            (key, new_idx))
+                    opcode = new_idx
+            else:
+                opcode = self.dict[key]
+            return opcode
 
     def find_first_unused_idx(self):
         used_idx = self.dict.values()

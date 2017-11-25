@@ -193,7 +193,9 @@ def populate_vectors(input_vec, labels_vec, batches):
 
 def embed_event(opcode, embedding_len):
     embedding = np.zeros(embedding_len)
-    embedding[opcode] = 1
+    if opcode != -1:
+        # -1 means opcode not present
+        embedding[opcode] = 1
     return embedding
 
 
