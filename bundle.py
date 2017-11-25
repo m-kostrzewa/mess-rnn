@@ -30,7 +30,7 @@ def main():
     benevolent_encodings = find_encodings(in_abs_dir, OTHERS_FILENAME)
 
     bundle(malevolent_encodings, benevolent_encodings, args.name,
-           args.batch_size)
+           args.batch_size, args.normalize, args.keep_percent)
 
 
 def parse_args():
@@ -50,9 +50,12 @@ def parse_args():
                              "cut short any sequences that spam events.")
     # parser.add_argument("--test_set_ratio", type=float, default=0.3,
     #                     help="Ratio of test set size to train set size")
-    # parser.add_argument("--normalize", type=int, default=10000,
-    #                     help="Whether to equalize the number of batches of "
-    #                          "each type")
+    parser.add_argument("--normalize", action="store_true",
+                        help="Whether to equalize (clone) malicious batches "
+                             "to match benevolent.")
+    parser.add_argument("--keep_percent", type=int, default=100,
+                        help="Percent of benevolent batches to keep. This "
+                             "is useful when there are memory constraints.")
     return parser.parse_args()
 
 
@@ -67,30 +70,56 @@ def find_encodings(directory, filename):
     return encodings
 
 
-def bundle(malevolent_encodings, benevolent_encodings, name, batch_size):
+def bundle(malevolent_encodings, benevolent_encodings, name, batch_size,
+           normalize, keep_percent):
     # TODO: split test and train sets here (before normalization)
-    # TODO: normalize num of samples in each step
 
     encodings_labels_pairs = [(x, True) for x in benevolent_encodings] + \
                              [(x, False) for x in malevolent_encodings]
+
+    benevolent_batch_num = 0
+    malevolent_batch_num = 0
+    
     for enc_path, is_benevolent in encodings_labels_pairs:
         st = collect_stats([enc_path], batch_size)
+        if is_benevolent:
+            benevolent_batch_num += st.batch_num
+        else:
+            malevolent_batch_num += st.batch_num
         s = "Benevolent" if is_benevolent else "Malevolent"
         log.info("Stats of %s encoding %s: %s" % (s, enc_path, st))
 
-    encoding_filepaths = map(lambda x: x[0], encodings_labels_pairs)
-    all_stats = collect_stats(list(encoding_filepaths), batch_size)
-
     batch_size = int(batch_size)
-    num_batches = all_stats.batch_num
+    num_batches = benevolent_batch_num + malevolent_batch_num
     embedding_len = calculate_embedding_len(config)
+
+    keep_ratio = (float(keep_percent) / 100.0)
+    benevolent_batch_num = int(keep_ratio * benevolent_batch_num)
+    log.info("Benevolent keep ratio is %s so will only take %s benevolent "
+             "batches." % (keep_ratio, benevolent_batch_num))
+
+    num_batches = benevolent_batch_num + malevolent_batch_num
+
+    if not normalize:
+        benevolents_per_malevolent = 1
+    if normalize:
+        benevolents_per_malevolent = benevolent_batch_num / malevolent_batch_num
+        benevolents_per_malevolent = int(benevolents_per_malevolent)
+        malevolent_batch_num = malevolent_batch_num * \
+                                   benevolents_per_malevolent
+        num_batches = benevolent_batch_num + malevolent_batch_num
+        log.info("Normalizing: new num batches: %s (malicious: %s)" %
+                 (num_batches, malevolent_batch_num))
+
+    batches = batch_generator(encodings_labels_pairs, batch_size,
+                              benevolents_per_malevolent, benevolent_batch_num)
 
     input_vec, labels_vec = allocate_vectors(num_batches, batch_size,
                                              embedding_len)
-
-    batches = batch_generator(encodings_labels_pairs, batch_size)
-
     input_vec, labels_vec = populate_vectors(input_vec, labels_vec, batches)
+
+    log.info("Final shapes: input vec: {}, labels vec: {}"
+             .format(input_vec.shape, labels_vec.shape))
 
     out_base_dir = config.get("Workspace", "bundles_base_dir")
     if not os.path.exists(out_base_dir):
@@ -150,22 +179,35 @@ def allocate_vectors(num_batches, batch_size, embedding_len):
     return input_vec, labels_vec
 
 
-def batch_generator(encodings_labels_pairs, batch_size):
+def batch_generator(encodings_labels_pairs, batch_size,
+                    repeats_of_malevolents, benevolents_cutoff):
+
     event_sequences = event_sequence_generator(encodings_labels_pairs)
-    i = 0
+    num_events = 0
+    benevolent_batch_counter = 0
     current_batch = []
     for is_benevolent, seq in event_sequences:
-        if i != 0:
+        if num_events != 0:
             # Last batch was not completed (not enough events). Instead
             # of padding let's just drop it.
-            i = 0
+            num_events = 0
             current_batch = []
         for event_opcode in seq:
+            if is_benevolent and benevolent_batch_counter >= benevolents_cutoff:
+                # benevolents keep ratio: don't add any benevolent batches
+                # if there is enough of them.
+                continue
             current_batch.append(event_opcode)
-            i += 1
-            if i == batch_size:
-                yield is_benevolent, current_batch
-                i = 0
+            num_events += 1
+            if num_events == batch_size:
+                if not is_benevolent:
+                    # normalization - clone malicious batches if needed
+                    for j in range(repeats_of_malevolents):
+                        yield is_benevolent, current_batch
+                else:
+                    benevolent_batch_counter += 1
+                    yield is_benevolent, current_batch
+                num_events = 0
                 current_batch = []
 
 

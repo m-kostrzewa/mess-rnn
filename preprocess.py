@@ -86,7 +86,6 @@ def start_workers(config, queue, output_queue, in_base_dir, out_base_dir,
 def make_zips(zip_paths, zip_base_dir, target_name):
     zips = []
     for zip_path in zip_paths:
-        log.error(zip_path)
         if not zipfile.is_zipfile(zip_path):
             log.error("%s - magic number is invalid! Skippping." % zip_path)
         rel_path = zip_path.replace(zip_base_dir, "./")
