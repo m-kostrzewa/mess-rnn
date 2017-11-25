@@ -26,8 +26,8 @@ def main():
     in_base_dir = config.get("Workspace", "encoded_base_dir")
     in_abs_dir = os.path.join(in_base_dir, in_subdir)
 
-    malevolent_encodings = find_encodings(in_abs_dir, TARGET_PROCESS_FILENAME)
-    benevolent_encodings = find_encodings(in_abs_dir, OTHER_PROCESSES_FILENAME)
+    malevolent_encodings = find_encodings(in_abs_dir, TARGET_FILENAME)
+    benevolent_encodings = find_encodings(in_abs_dir, OTHERS_FILENAME)
 
     bundle(malevolent_encodings, benevolent_encodings, args.name,
            args.batch_size)

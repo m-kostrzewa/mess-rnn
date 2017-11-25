@@ -11,8 +11,8 @@ import logging.config
 import os.path
 from collections import namedtuple
 
-TARGET_PROCESS_FILENAME = "target.txt"
-OTHER_PROCESSES_FILENAME = "others.txt"
+TARGET_FILENAME = "target.txt"
+OTHERS_FILENAME = "others.txt"
 
 
 def init_logger(config):

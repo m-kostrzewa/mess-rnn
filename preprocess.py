@@ -164,29 +164,36 @@ class Worker(threading.Thread):
     def preprocess(self, zip_sample):
         log.info("Worker %s - processing %s" % (self.id, zip_sample.rel_path))
 
-        csv_file = self.extract_csv(zip_sample.rel_path)
-        benevolent, malevolent = self.encode(csv_file, zip_sample.target_name)
         out_dir = os.path.join(self.out_base_dir,
                                os.path.dirname(zip_sample.rel_path))
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
-        self.save_encodings(benevolent, os.path.join(out_dir,
-                                                     OTHER_PROCESSES_FILENAME))
-        self.save_encodings(malevolent, os.path.join(out_dir,
-                                                     TARGET_PROCESS_FILENAME))
 
-    def extract_csv(self, rel_path):
+        csv_files = self.csv_extractor(zip_sample.rel_path)
+        for csv_file in csv_files:
+            try:
+                benevolent, malevolent = self.encode(csv_file,
+                                                     zip_sample.target_name)
+                self.save_encodings(benevolent, os.path.join(out_dir,
+                                                             OTHERS_FILENAME))
+                self.save_encodings(malevolent, os.path.join(out_dir,
+                                                             TARGET_FILENAME))
+            finally:
+                csv_file.close()
+
+    def csv_extractor(self, rel_path):
         zip_abs_path = os.path.join(self.in_base_dir, rel_path)
         with zipfile.ZipFile(zip_abs_path) as zip_file:
             found_files = zip_file.namelist()
             log.debug("Worker %s - files found in the archive: %s" %
                         (self.id, found_files))
 
-            csv_file = next(filter(lambda filepath: ".csv" == \
-                                   os.path.splitext(filepath)[1].lower(),
-                                   found_files))
-            log.debug("Worker %s - opening csv file: %s" % (self.id, csv_file))
-            return zip_file.open(csv_file, mode="r")
+            found_csvs = filter(lambda filepath: ".csv" == \
+                                    os.path.splitext(filepath)[1].lower(),
+                                found_files)
+            for csv in found_csvs:
+                log.debug("Worker %s - opening csv file: %s" % (self.id, csv))
+                yield zip_file.open(csv, mode="r")
 
     def encode(self, csv_file, target_name):
         log.debug("Worker %s - encoding" % self.id)
