@@ -183,10 +183,8 @@ class Worker(threading.Thread):
             try:
                 benevolent, malevolent = self.encode(csv_file,
                                                      zip_sample.target_name)
-                self.save_encodings(benevolent, os.path.join(out_dir,
-                                                             OTHERS_FILENAME))
-                self.save_encodings(malevolent, os.path.join(out_dir,
-                                                             TARGET_FILENAME))
+                self.save_encodings(benevolent, out_dir, OTHERS_FILENAME)
+                self.save_encodings(malevolent, out_dir, TARGET_FILENAME)
             finally:
                 csv_file.close()
 
@@ -228,8 +226,10 @@ class Worker(threading.Thread):
         target_is_process = row["Process Name"] == target_name
         return target_name_in_path or target_is_process
 
-    def save_encodings(self, enc, out_path):
+    def save_encodings(self, enc, out_dir, base_name):
         with Worker.__lock:
+            filename = "{}_{}.txt".format(base_name, timestamp())
+            out_path = os.path.join(out_dir, filename)
             log.debug("Worker %s - saving %s process encodings to %s" %
                     (self.id, len(enc.keys()), out_path))
             self.output_queue.put(out_path)

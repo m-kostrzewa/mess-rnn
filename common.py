@@ -9,10 +9,11 @@ import threading
 import logging
 import logging.config
 import os.path
+from datetime import datetime
 from collections import namedtuple
 
-TARGET_FILENAME = "target.txt"
-OTHERS_FILENAME = "others.txt"
+TARGET_FILENAME = "target"
+OTHERS_FILENAME = "others"
 
 
 def init_logger(config):
@@ -49,6 +50,12 @@ def generate_bundle_filename(basename, is_train, is_input):
     return "{}_{}_{}_vec".format(basename,
                                  ("train" if is_train else "test"),
                                  ("input" if is_input else "output"))
+
+
+def timestamp():
+    return str(datetime.now()).split('.')[0] \
+                              .replace(" ", "_") \
+                              .replace(":", "-")
 
 
 Hyperparams = namedtuple("Hyperparams", ["num_epochs",

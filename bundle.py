@@ -26,8 +26,9 @@ def main():
     in_base_dir = config.get("Workspace", "encoded_base_dir")
     in_abs_dir = os.path.join(in_base_dir, in_subdir)
 
-    malevolent_encodings = find_encodings(in_abs_dir, TARGET_FILENAME)
-    benevolent_encodings = find_encodings(in_abs_dir, OTHERS_FILENAME)
+    found_encodings = find_files_recursive(in_abs_dir, "txt")
+    malevolent_encodings = [x for x in found_encodings if TARGET_FILENAME in x]
+    benevolent_encodings = [x for x in found_encodings if OTHERS_FILENAME in x]
 
     bundle(malevolent_encodings, benevolent_encodings, args.name,
            args.batch_size, args.normalize, args.keep_percent)

@@ -8,7 +8,6 @@ from common import *
 
 import os
 import glob
-from datetime import datetime
 from collections import namedtuple
 import pickle
 
@@ -142,9 +141,7 @@ def get_tflearn_meta(config):
 
 
 def generate_model_name(bundle_name):
-    run_timestamp = str(datetime.now()).split('.')[0] \
-                                       .replace(" ", "_") \
-                                       .replace(":", "-")
+    run_timestamp = timestamp()
     return "{}_{}".format(run_timestamp, bundle_name)
 
 
