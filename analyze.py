@@ -235,11 +235,13 @@ class MessWorker(threading.Thread):
         self.mess.start_analysis(self.vm_name, sample.target_name,
             sample.command.split("%"), sample.load(), toolkit_data,
             self.snapshot_name)
-        log.info("MessWorker %s - analysis started" % self.id)
+        log.info("MessWorker %s - analysis started. Will take %s minutes" % 
+                 (self.id, self.sleep_time_minutes))
 
         for i in range(self.sleep_time_minutes):
             if self.mess.get_vm_state(self.vm_name) != "ANALYSING":
                 raise RuntimeError("MESS VM stopped analysis unexpectedly")
+            log.debug("MessWorker %s - ZZZZZzzzz..." % (self.id))
             time.sleep(60)
 
         # TODO: when should force_stop be True?
