@@ -22,7 +22,7 @@ def init_logger(config):
 
 
 def find_files_recursive(directory, filetype):
-    return glob.glob("%s/*.%s" % (directory, filetype), recursive=True)
+    return glob.glob("%s/**/*.%s" % (directory, filetype), recursive=True)
 
 
 def read_all_queue(output_queue):
