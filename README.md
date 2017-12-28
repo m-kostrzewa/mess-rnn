@@ -164,5 +164,5 @@ python3 rnn.py --help
 
 Tensorboard can be used to analyze the learning process:
 ```
-tensorboard --logdir $tensorboard_dir_from_cfg
+python -m tensorboard.main --logdir $logdir_from_config
 ```
