@@ -28,7 +28,7 @@ def main():
     zips_paths = find_files_recursive(in_abs_dir, "zip")
     target_name = config.get("Common", "sample_target_name")
 
-    preprocess(zips_paths, target_name, read_only_opcode_dict=False)
+    preprocess(zips_paths, target_name, read_only_opcode_dict=args.readonly)
 
 
 def parse_args():
@@ -39,6 +39,9 @@ def parse_args():
                              "Must be relative to analyzed_base_dir in config.")
     parser.add_argument("--config", type=str, default="mess-rnn.cfg",
                         help="Config filepath.")
+    parser.add_argument("--readonly", action="store_true",
+                        help="Don't put newly found operation codes into "
+                             "opcode dict.")
     return parser.parse_args()
 
 
