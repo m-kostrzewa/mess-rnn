@@ -16,7 +16,7 @@ import tensorflow as tf
 import tflearn
 import sklearn as sk
 import sklearn.metrics
-# from tflearn.layers.recurrent import bidirectional_rnn, BasicLSTMCell
+from tflearn.layers.recurrent import bidirectional_rnn, BasicLSTMCell
 
 log = logging.getLogger("rnn")
 config = configparser.ConfigParser()
@@ -47,7 +47,8 @@ def main():
     log.info(hyperparams)
 
     data_shape = get_shape(input_vec)
-    model = make_model(data_shape, hyperparams, tensorboard_dir, model_name)
+    model = make_model(data_shape, hyperparams, tensorboard_dir, model_name,
+                       args.use_lstm)
 
     if args.load:
         model = load_weights(model, model_name, weights_base_dir)
@@ -89,6 +90,9 @@ def parse_args():
                         help="Whether to load model hyperparameters and "
                              "weights. If false, will get hyperparameters "
                              "based on other arguments.")
+
+    parser.add_argument("--use_lstm", action="store_true",
+                        help="Whether to useLSTM instead of RNN layer.")
 
     parser.add_argument("--numepochs", type=int, default=2,
                         help="Number of training epochs")
@@ -186,14 +190,20 @@ def get_shape(input_vec):
     return s
 
 
-def make_model(data_shape, hyperparams, tensorboard_dir, model_name):
+def make_model(data_shape, hyperparams, tensorboard_dir, model_name,
+               use_lstm=False):
     num_outputs = 2
     net = tflearn.input_data([None,
                               data_shape.batch_size,
                               data_shape.embedding_len])
-    net = tflearn.simple_rnn(net,
-                             activation=hyperparams.activation,
-                             n_units=hyperparams.n_units)
+    if not use_lstm:
+        net = tflearn.simple_rnn(net,
+                                 activation=hyperparams.activation,
+                                 n_units=hyperparams.n_units)
+    else:
+        net = tflearn.lstm(net,
+                                activation=hyperparams.activation,
+                                n_units=hyperparams.n_units)
     net = tflearn.dropout(net,
                           keep_prob=0.5)
     net = tflearn.fully_connected(net, num_outputs,
