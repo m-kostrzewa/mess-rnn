@@ -25,7 +25,14 @@ def main():
     in_abs_dir = os.path.join(in_base_dir, in_subdir)
 
     samples_paths = find_files_recursive(in_abs_dir, "exe")
-    descriptors_paths = find_files_recursive(in_abs_dir, "txt")
+
+    if args.descriptor == "":
+        log.info("Will look for sample descriptors recursively.")
+        descriptors_paths = find_files_recursive(in_abs_dir, "txt")
+    else:
+        descriptor_path = os.path.join(in_abs_dir, args.descriptor)
+        log.info("Using specific sample descriptor: %s", descriptor_path)
+        descriptors_paths = [descriptor_path]
 
     analyze(samples_paths, descriptors_paths)
 
@@ -38,6 +45,8 @@ def parse_args():
                              "raw_base_dir in config.")
     parser.add_argument("--config", type=str, default="mess-rnn.cfg",
                         help="Config filepath.")
+    parser.add_argument("--descriptor", type=str, default="",
+                        help="Path to specific descriptor file to use.")
     return parser.parse_args()
 
 
