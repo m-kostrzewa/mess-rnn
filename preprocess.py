@@ -217,11 +217,11 @@ class Worker(threading.Thread):
 
             is_malware = self.is_malware(row, target_name)
 
-            pid = row["PID"]
+            header = "{}/{}".format(row["PID"], row["Process Name"])
             if is_malware:
-                malevolent_encodings[pid].append(enc_op)
+                malevolent_encodings[header].append(enc_op)
             else:
-                benevolent_encodings[pid].append(enc_op)
+                benevolent_encodings[header].append(enc_op)
         return (benevolent_encodings, malevolent_encodings)
 
     def is_malware(self, row, target_name):
@@ -237,8 +237,8 @@ class Worker(threading.Thread):
                     (self.id, len(enc.keys()), out_path))
             self.output_queue.put(out_path)
             with open(out_path, "a") as f:
-                for pid, encodings in enc.items():
-                    f.write("%s\n" % ",".join(map(str, encodings)))
+                for header, encodings in enc.items():
+                    f.write("%s:%s\n" % (header, ",".join(map(str, encodings))))
 
 
 class ZippedSample(object):

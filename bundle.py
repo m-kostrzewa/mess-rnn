@@ -149,6 +149,8 @@ def collect_stats(files, batch_size):
     for path in files:
         with open(path) as f:
             for line in f:
+                if ":" in line:
+                    line = line.split(":")[-1]
                 proc_num += 1
                 this_proc_len = len(line.split(","))
                 total_len += this_proc_len
@@ -216,6 +218,8 @@ def event_sequence_generator(encodings_labels_pairs):
     for to_load in encodings_labels_pairs:
         with open(to_load[0]) as f:
             for line in f:
+                if ":" in line:
+                    line = line.split(":")[-1]
                 yield to_load[1], line.split(",")
 
 
